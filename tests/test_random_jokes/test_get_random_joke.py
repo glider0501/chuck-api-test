@@ -1,92 +1,59 @@
+import random
+
 import pytest
-from tests.data.joke_payloads import JOKE_CATEGORIES
-from utils.assertions import assert_joke_structure
+import requests
+
+from tests.data.category_data import INVALID_CATEGORY, SAMPLE_CATEGORIES, KNOWN_CATEGORIES
+from tests.data.expected_schemas import REQUIRED_FIELDS
 
 
 class TestRandomJokes:
-    """Tests for random joke endpoints."""
+    """/random joke tests"""
 
-    def test_random_joke_returns_valid_response(self, jokes_client):
-        """Test that random joke endpoint returns 200."""
-        response = jokes_client.get_random_joke()
+    @pytest.mark.parametrize("category", [None] + SAMPLE_CATEGORIES,
+                             ids=lambda c: f"cat-{c or 'none'}")
+    def test_random_joke_complete_response(self, category, jokes_client):
+        """Parametrized: full validation across categories + no category."""
+        response = jokes_client.get_random_joke(category=category)
         assert response.status_code == 200
-    #
-    # def test_random_joke_returns_valid_id(self, jokes_client):
-    #     """Test that random joke has valid ID."""
-    #     response = jokes_client.get_random_joke()
-    #     joke = response.json()
-    #     assert joke['id'] is not None
-    #     assert isinstance(joke['id'], str)
-    #     assert len(joke['id']) > 0
-    #
-    # def test_random_joke_has_value(self, jokes_client):
-    #     """Test that random joke has value text."""
-    #     response = jokes_client.get_random_joke()
-    #     joke = response.json()
-    #     assert 'value' in joke
-    #     assert isinstance(joke['value'], str)
-    #     assert len(joke['value']) > 0
-    #
-    # def test_random_joke_has_icon_url(self, jokes_client):
-    #     """Test that random joke has icon URL."""
-    #     response = jokes_client.get_random_joke()
-    #     joke = response.json()
-    #     assert 'icon_url' in joke
-    #     assert isinstance(joke['icon_url'], str)
-    #     assert 'http' in joke['icon_url']
-    #
-    # @pytest.mark.parametrize("category", JOKE_CATEGORIES, ids=lambda c: f"category-{c}")
-    # def test_get_random_joke_by_category(self, category, jokes_client):
-    #     """Test getting random joke from each category."""
-    #     response = jokes_client.get_random_joke(category=category)
-    #     assert response.status_code == 200
-    #     joke = response.json()
-    #     assert joke['value'] is not None
-    #     assert isinstance(joke['value'], str)
-    #     assert len(joke['value']) > 0
-    #
-    # @pytest.mark.parametrize("category", JOKE_CATEGORIES, ids=lambda c: f"category-{c}")
-    # def test_joke_response_complete(self, category, jokes_client):
-    #     """Test complete joke response structure for each category."""
-    #     response = jokes_client.get_random_joke(category=category)
-    #     joke = response.json()
-    #
-    #     # Check all required fields
-    #     required_fields = ['icon_url', 'id', 'url', 'value']
-    #     for field in required_fields:
-    #         assert field in joke, f"Missing field: {field}"
-    #
-    # def test_different_jokes_returned(self, jokes_client):
-    #     """Test that multiple calls return different jokes."""
-    #     response1 = jokes_client.get_random_joke()
-    #     response2 = jokes_client.get_random_joke()
-    #
-    #     joke1 = response1.json()['id']
-    #     joke2 = response2.json()['id']
-    #
-    #     # Note: This test can occasionally fail if same joke returned twice
-    #     # but probability is very low with large joke database
-    #     assert joke1 != joke2, "Expected different jokes, got same one twice"
 
+        joke = response.json()
 
-class TestRandomJokesEdgeCases:
-    """Edge case tests for random jokes."""
+        for field in REQUIRED_FIELDS:
+            assert field in joke
+            assert isinstance(joke[field], str)
+            if field == 'value':
+                assert len(joke[field]) > 20
+            elif field == 'icon_url':
+                assert 'http' in joke[field]
+
+        assert isinstance(joke['categories'], list)
+        assert joke['id']  # Non-empty ID
+
+    def test_category_validation(self, jokes_client):
+        """Test valid/invalid categories"""
+
+        valid = jokes_client.get_random_joke(category=random.choice(KNOWN_CATEGORIES))
+        assert valid.status_code == 200
+
+        try:
+            jokes_client.get_random_joke(category=INVALID_CATEGORY)
+            pytest.fail("Expected 404 for invalid category")
+        except requests.exceptions.HTTPError as e:
+            assert e.response.status_code == 404
+            assert INVALID_CATEGORY in e.response.url
+
+    def test_joke_variability(self, jokes_client):
+        """Test different jokes returned across multiple calls."""
+        ids = {jokes_client.get_random_joke().json()['id']
+               for _ in range(5)}
+        assert len(ids) >= 3, "Expected joke variety (got repeats)"
 
     def test_invalid_category_error(self, jokes_client):
-        """Test handling of invalid category."""
-        response = jokes_client.get_random_joke(category='invalid-category-xyz')
-        # API may return 200 with no result or 404, either is valid error handling
-        assert response.status_code in [200, 404]
-
-    def test_special_characters_in_joke(self, jokes_client):
-        """Test that jokes with special characters are handled."""
-        response = jokes_client.get_random_joke()
-        joke = response.json()
-        # Just verify it doesn't crash and has value
-        assert len(joke['value']) > 0
-
-    def test_multiple_rapid_requests(self, jokes_client):
-        """Test handling of multiple rapid requests."""
-        for _ in range(5):
-            response = jokes_client.get_random_joke()
-            assert response.status_code == 200
+        """Test invalid category returns 404."""
+        try:
+            jokes_client.get_random_joke(category=INVALID_CATEGORY)
+            pytest.fail("Expected 404 for invalid category")
+        except requests.exceptions.HTTPError as e:
+            assert e.response.status_code == 404
+            assert INVALID_CATEGORY in e.response.url

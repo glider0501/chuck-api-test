@@ -1,3 +1,6 @@
+from random import sample
+import uuid
+
 KNOWN_CATEGORIES = [
     'animal',
     'career',
@@ -17,4 +20,6 @@ KNOWN_CATEGORIES = [
     'travel',
 ]
 
-CATEGORY_COUNT = 16
+CATEGORY_COUNT = len(KNOWN_CATEGORIES)
+INVALID_CATEGORY = uuid.uuid4().hex[:12]
+SAMPLE_CATEGORIES = sample(KNOWN_CATEGORIES, 5)

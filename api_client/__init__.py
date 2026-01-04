@@ -1,5 +1,5 @@
-from api_client.base_client import BaseClient
-from api_client.endpoints.jokes import JokesClient
+from api_client.endpoints.jokes import RandomJokesClient
 from api_client.endpoints.categories import CategoriesClient
+from api_client.endpoints.search import SearchJokesClient
 
-__all__ = ['BaseClient', 'JokesClient', 'CategoriesClient']
+__all__ = ['RandomJokesClient', 'CategoriesClient', 'SearchJokesClient']
