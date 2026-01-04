@@ -1,0 +1,6 @@
+pytest
+pytest-cov
+pytest-xdist
+requests
+jsonschema
+python-dotenv
