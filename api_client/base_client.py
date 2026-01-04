@@ -1,25 +1,28 @@
 import os
 import time
+from abc import ABC
+
 import requests
 from typing import Optional, Dict, Any
 from dotenv import load_dotenv
+from requests import Response
 
 load_dotenv()
 
 
-class BaseClient:
+class BaseClient(ABC):
     """Generic HTTP client with retry logic and session management."""
 
     def __init__(self, base_url: str = None, timeout: int = None,
                  retry_attempts: int = None, retry_backoff: float = None):
-        self.base_url = base_url or os.getenv('BASE_URL', 'https://api.chucknorris.io/api')
+        self.base_url = base_url or os.getenv('BASE_URL', 'https://api.chucknorris.io')
         self.timeout = timeout or int(os.getenv('REQUEST_TIMEOUT', '10'))
         self.retry_attempts = retry_attempts or int(os.getenv('RETRY_ATTEMPTS', '3'))
         self.retry_backoff = retry_backoff or float(os.getenv('RETRY_BACKOFF', '0.3'))
         self.session = requests.Session()
 
     def get(self, endpoint: str, params: Optional[Dict[str, Any]] = None,
-            **kwargs) -> requests.Response:
+            **kwargs) -> Response | None:
         """GET request with retry logic."""
         url = f"{self.base_url}{endpoint}"
 
@@ -38,6 +41,7 @@ class BaseClient:
                     raise
                 wait_time = self.retry_backoff * (2 ** attempt)
                 time.sleep(wait_time)
+        return None
 
     def close(self):
         """Close the session."""
